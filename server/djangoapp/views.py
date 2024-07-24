@@ -31,7 +31,7 @@ def login_user(request):
     data = json.loads(request.body)
     username = data['userName']
     password = data['password']
-    # Try to check if provide credential can be authenticated
+    # Try to check if provided credentials can be authenticated
     user = authenticate(username=username, password=password)
     data = {"userName": username}
     if user is not None:
@@ -92,7 +92,7 @@ def get_cars(request):
         cars.append({"CarModel": car_model.name, "CarMake": car_model.make.name})
     return JsonResponse({"CarModels": cars})
 
-#Update the `get_dealerships` render list of dealerships all by default, particular state if state is passed
+# Update the `get_dealerships` render list of dealerships all by default, particular state if state is passed
 def get_dealerships(request, state="All"):
     if(state == "All"):
         endpoint = "/fetchDealers"
@@ -102,7 +102,7 @@ def get_dealerships(request, state="All"):
     return JsonResponse({"status":200,"dealers":dealerships})
 
 def get_dealer_details(request, dealer_id):
-    if(dealer_id):
+    if dealer_id:
         endpoint = "/fetchDealer/"+str(dealer_id)
         dealership = get_request(endpoint)
         return JsonResponse({"status":200,"dealer":dealership})
@@ -110,24 +110,51 @@ def get_dealer_details(request, dealer_id):
         return JsonResponse({"status":400,"message":"Bad Request"})
 
 def get_dealer_reviews(request, dealer_id):
-    # if dealer id has been provided
-    if(dealer_id):
-        endpoint = "/fetchReviews/dealer/"+str(dealer_id)
-        reviews = get_request(endpoint)
-        for review_detail in reviews:
-            response = analyze_review_sentiments(review_detail['review'])
-            print(response)
-            review_detail['sentiment'] = response['sentiment']
-        return JsonResponse({"status":200,"reviews":reviews})
+    if dealer_id:
+        endpoint = f"/fetchReviews/dealer/{dealer_id}"
+        print(f"Requesting reviews from endpoint: {endpoint}")  # Debugging print
+        try:
+            # Fetch reviews from the endpoint
+            reviews = get_request(endpoint)
+            print(f"Received reviews: {reviews}")  # Debugging print
+            
+            # Check if reviews are successfully fetched
+            if reviews:
+                # Analyze sentiments
+                sentiments = analyze_review_sentiments(reviews)
+                print(f"Sentiments analysis result: {sentiments}")  # Debugging print
+                return JsonResponse({"status": 200, "reviews": sentiments})
+            else:
+                print("No reviews found")  # Debugging print
+                return JsonResponse({"status": 404, "message": "No reviews found"})
+        except Exception as e:
+            logger.error(f"Error fetching or analyzing reviews: {e}")
+            print(f"Unexpected error occurred: {e}")  # Debugging print
+            return JsonResponse({"status": 500, "message": "Internal Server Error"})
     else:
-        return JsonResponse({"status":400,"message":"Bad Request"})
-    
+        print("Invalid dealer_id")  # Debugging print
+        return JsonResponse({"status": 400, "message": "Bad Request"})
+
 def add_review(request):
     if(request.user.is_anonymous == False):
         data = json.loads(request.body)
         try:
-            response = post_review(data)
-            return JsonResponse({"status":200})
+            # Post the review and get the response
+            post_response = post_review(data)
+            
+            # Extract the review ID from the response if available
+            review_id = post_response.get('id')
+            
+            # Analyze sentiment of the review
+            sentiments = analyze_review_sentiments([data])
+            
+            # Combine the review response with sentiment analysis
+            result = {
+                "status": 200,
+                "review": post_response,
+                "sentiments": sentiments[0] if sentiments else None
+            }
+            return JsonResponse(result)
         except:
             return JsonResponse({"status":401,"message":"Error in posting review"})
     else:
