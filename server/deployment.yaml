@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dealership-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dealership
+  template:
+    metadata:
+      labels:
+        app: dealership
+    spec:
+      containers:
+      - name: dealership-container
+        image: us.icr.io/hemanth-dallas-namespace/dealership-image:latest
+        ports:
+        - containerPort: 8000
